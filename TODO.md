@@ -63,8 +63,8 @@
 
 ### CLI entry point
 
-- [ ] Wire up `cmd/thinkpixelspider/main.go`: config → collector → crawl service → filesystem sink → CSV manifest
-- [ ] Print crawl summary on completion (pages discovered, visited, extracted, errors)
+- [x] Wire up `cmd/thinkpixelspider/main.go`: config → collector → crawl service → filesystem sink → CSV manifest
+- [x] Print crawl summary on completion (pages discovered, visited, extracted, errors)
 
 ### Tests (Phase 1)
 

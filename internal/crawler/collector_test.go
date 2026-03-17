@@ -1,5 +1,4 @@
 package crawler
-package crawler
 
 import (
 	"testing"
