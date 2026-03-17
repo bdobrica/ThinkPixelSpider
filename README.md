@@ -11,7 +11,7 @@ The project supports two execution modes:
 - **CLI mode** for local crawling and offline exports
 - **Daemon mode** for queue-driven, distributed crawling in Kubernetes or similar environments
 
-## Goals
+## 🎯 Goals
 
 ThinkPixelSpider is built to:
 
@@ -24,7 +24,7 @@ ThinkPixelSpider is built to:
 - output content either to local files or message queues
 - support simple local usage as well as distributed deployments
 
-## Core ideas
+## 💡 Core ideas
 
 The crawler follows a layered extraction strategy:
 
@@ -39,7 +39,7 @@ The crawler follows a layered extraction strategy:
 
 This makes ThinkPixelSpider practical for a strong first version while leaving room for more advanced site-structure inference later.
 
-## Features
+## ✨ Features
 
 - built in Go
 - crawling powered by [Colly](https://github.com/gocolly/colly)
@@ -59,7 +59,7 @@ This makes ThinkPixelSpider practical for a strong first version while leaving r
 - deterministic URL-to-file mapping
 - deduplication and domain restriction support
 
-## Planned architecture
+## 🏗️ Planned architecture
 
 ```mermaid
 flowchart TD
@@ -81,7 +81,7 @@ flowchart TD
     queue_out["Queue Output\n— crawled page events\n— crawl summaries\n— error events"]
 ```
 
-## Execution modes
+## ⚙️ Execution modes
 
 ### CLI mode
 
@@ -128,7 +128,7 @@ Typical use case:
 
 This mode is intended to be compatible with distributed deployments such as Kubernetes.
 
-## Queue backends
+## 📬 Queue backends
 
 ThinkPixelSpider is designed around queue abstractions, so different backends can be supported.
 
@@ -140,7 +140,7 @@ Initial targets:
 * **NATS / JetStream**
   Good for event-driven and Kubernetes-native deployments
 
-## Colly storage backends
+## 🗄️ Colly storage backends
 
 ThinkPixelSpider will support configuring Colly with either:
 
@@ -150,7 +150,7 @@ ThinkPixelSpider will support configuring Colly with either:
 * **Redis storage**
   Useful for persistence, cross-worker coordination, and distributed crawling scenarios
 
-## Configuration
+## 🔧 Configuration
 
 The application is intended to be fully configurable through environment variables, making it suitable for containers and Kubernetes deployments.
 
@@ -193,7 +193,7 @@ QUEUE_NATS_OUTPUT_SUBJECT=crawl.pages
 QUEUE_NATS_DURABLE_NAME=thinkpixelspider
 ```
 
-## Example CLI usage
+## 🖥️ Example CLI usage
 
 ```bash
 thinkpixelspider crawl \
@@ -209,7 +209,7 @@ thinkpixelspider crawl --domain example.com --output ./output --manifest csv
 thinkpixelspider daemon
 ```
 
-## Expected output model
+## 📦 Expected output model
 
 Each extracted page is expected to include metadata similar to the following:
 
@@ -231,7 +231,7 @@ Each extracted page is expected to include metadata similar to the following:
 }
 ```
 
-## Planned project structure
+## 🧱 Planned project structure
 
 ```text
 cmd/
@@ -255,7 +255,7 @@ pkg/
   types/
 ```
 
-## Discovery strategy
+## 🧭 Discovery strategy
 
 ThinkPixelSpider is intended to discover pages using a combination of:
 
@@ -265,7 +265,7 @@ ThinkPixelSpider is intended to discover pages using a combination of:
 
 The crawler should prefer sitemaps first on WordPress and similar CMS-driven sites because they provide cleaner and more efficient article discovery.
 
-## Content extraction pipeline
+## 🧪 Content extraction pipeline
 
 The planned extraction pipeline is:
 
@@ -277,7 +277,7 @@ The planned extraction pipeline is:
 6. normalize Markdown
 7. emit result to file or queue
 
-## Scope and non-goals
+## 🚧 Scope and non-goals
 
 ### In scope
 
@@ -296,7 +296,7 @@ The planned extraction pipeline is:
 * advanced distributed crawl frontier management
 * perfect extraction for every possible website
 
-## Development status
+## 🚀 Development status
 
 This project is currently in active design / early implementation.
 
@@ -310,13 +310,13 @@ The initial focus is:
 * Redis-backed queue support
 * Kubernetes-friendly daemon mode
 
-## Why this project exists
+## 🤔 Why this project exists
 
 ThinkPixelSpider exists to support a semantic search workflow where website articles can be crawled, cleaned, normalized, and indexed consistently.
 
 The main objective is not just to scrape pages, but to produce **clean, article-focused content** that can be embedded and searched effectively.
 
-## Roadmap
+## 🛣️ Roadmap
 
 ### Phase 1
 
@@ -356,7 +356,7 @@ The main objective is not just to scrape pages, but to produce **clean, article-
 * smarter extraction heuristics
 * optional template-aware extraction extensions
 
-## Contributing
+## 🤝 Contributing
 
 Contributions, ideas, and feedback are welcome.
 
@@ -370,6 +370,6 @@ If you want to contribute, please open an issue or start a discussion around:
 * output formats
 * distributed deduplication
 
-## License
+## 📄 License
 
 [Apache 2.0](./LICENSE)
