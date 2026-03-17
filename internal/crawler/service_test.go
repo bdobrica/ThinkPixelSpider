@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/gocolly/colly/v2"
@@ -156,8 +157,8 @@ func TestCrawlServiceRun_MaxPagesLimit(t *testing.T) {
 		t.Fatalf("Run() error: %v", err)
 	}
 
-	if result.PagesDiscovered > 10 {
-		t.Errorf("PagesDiscovered = %d, expected it to be limited near MaxPages=5", result.PagesDiscovered)
+	if result.PagesDiscovered > 5 {
+		t.Errorf("PagesDiscovered = %d, want <= 5", result.PagesDiscovered)
 	}
 }
 
@@ -201,5 +202,57 @@ func TestCrawlServiceRun_SkipsNonHTML(t *testing.T) {
 
 	if handlerCalled {
 		t.Error("PageHandler should not be called for non-HTML responses")
+	}
+}
+
+func TestSafeResponseURL_NilResponse(t *testing.T) {
+	if got := safeResponseURL(nil); got != "<unknown>" {
+		t.Errorf("safeResponseURL(nil) = %q, want %q", got, "<unknown>")
+	}
+}
+
+func TestSafeResponseURL_NilRequest(t *testing.T) {
+	r := &colly.Response{}
+	if got := safeResponseURL(r); got != "<unknown>" {
+		t.Errorf("safeResponseURL(response with nil request) = %q, want %q", got, "<unknown>")
+	}
+}
+
+func TestSafeResponseURL_WithURL(t *testing.T) {
+	u, err := url.Parse("https://example.com/path")
+	if err != nil {
+		t.Fatalf("url.Parse: %v", err)
+	}
+
+	r := &colly.Response{Request: &colly.Request{URL: u}}
+	if got := safeResponseURL(r); got != "https://example.com/path" {
+		t.Errorf("safeResponseURL(response with URL) = %q, want %q", got, "https://example.com/path")
+	}
+}
+
+func TestReservePageSlot_StrictUnderConcurrency(t *testing.T) {
+	const maxPages int64 = 5
+	const workers = 100
+
+	var discovered int64
+	var reserved int64
+
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if reservePageSlot(&discovered, maxPages) {
+				atomic.AddInt64(&reserved, 1)
+			}
+		}()
+	}
+	wg.Wait()
+
+	if reserved != maxPages {
+		t.Errorf("reserved slots = %d, want %d", reserved, maxPages)
+	}
+	if got := atomic.LoadInt64(&discovered); got != maxPages {
+		t.Errorf("discovered = %d, want %d", got, maxPages)
 	}
 }

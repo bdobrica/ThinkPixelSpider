@@ -111,7 +111,6 @@ generators that consume structured Markdown files.</p>
 
 	// --- Set up output directory ---
 	outDir := t.TempDir()
-	pagesDir := filepath.Join(outDir, "pages")
 	manifestPath := filepath.Join(outDir, "manifest.csv")
 
 	manifest, err := output.NewCSVManifestWriter(manifestPath)
@@ -120,7 +119,7 @@ generators that consume structured Markdown files.</p>
 	}
 	defer manifest.Close()
 
-	sink := output.NewFilesystemPageSink(pagesDir, manifest)
+	sink := output.NewFilesystemPageSink(outDir, manifest)
 	converter := markdown.NewConverter()
 
 	// --- Build page handler (same as main.go) ---
@@ -231,8 +230,8 @@ generators that consume structured Markdown files.</p>
 	}
 
 	// --- Validate output files exist ---
-	article1Path := filepath.Join(pagesDir, "pages", hostname, "2026", "03", "first-article.md")
-	article2Path := filepath.Join(pagesDir, "pages", hostname, "2026", "03", "second-article.md")
+	article1Path := filepath.Join(outDir, "pages", hostname, "2026", "03", "first-article.md")
+	article2Path := filepath.Join(outDir, "pages", hostname, "2026", "03", "second-article.md")
 
 	assertFileExists(t, article1Path)
 	assertFileExists(t, article2Path)
@@ -258,17 +257,17 @@ generators that consume structured Markdown files.</p>
 	assertContains(t, string(content2), "second article", "article 2 should contain article text")
 
 	// --- Validate filtered URLs were NOT extracted ---
-	categoryDir := filepath.Join(pagesDir, "pages", hostname, "category")
+	categoryDir := filepath.Join(outDir, "pages", hostname, "category")
 	if _, err := os.Stat(categoryDir); err == nil {
 		t.Error("category directory should not exist (URL was filtered)")
 	}
 
-	tagDir := filepath.Join(pagesDir, "pages", hostname, "tag")
+	tagDir := filepath.Join(outDir, "pages", hostname, "tag")
 	if _, err := os.Stat(tagDir); err == nil {
 		t.Error("tag directory should not exist (URL was filtered)")
 	}
 
-	wpAdminDir := filepath.Join(pagesDir, "pages", hostname, "wp-admin")
+	wpAdminDir := filepath.Join(outDir, "pages", hostname, "wp-admin")
 	if _, err := os.Stat(wpAdminDir); err == nil {
 		t.Error("wp-admin directory should not exist (URL was filtered)")
 	}

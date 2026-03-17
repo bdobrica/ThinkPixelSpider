@@ -276,6 +276,7 @@ func validate(cfg *Config) error {
 	if dm != "sitemap" && dm != "links" && dm != "both" {
 		return fmt.Errorf("invalid discovery mode %q: must be sitemap, links, or both", cfg.Crawl.DiscoveryMode)
 	}
+	cfg.Crawl.DiscoveryMode = dm
 
 	mt := strings.ToLower(cfg.Output.ManifestType)
 	if mt != "csv" && mt != "sqlite" {

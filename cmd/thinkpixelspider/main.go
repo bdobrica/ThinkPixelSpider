@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -36,16 +37,16 @@ func run() error {
 	}
 
 	// --- Manifest ---
-	manifestPath := filepath.Join(cfg.Output.Directory, "manifest.csv")
-	manifest, err := output.NewCSVManifestWriter(manifestPath)
+	manifest, manifestPath, err := newManifestWriter(cfg)
 	if err != nil {
 		return fmt.Errorf("creating manifest: %w", err)
 	}
 	defer manifest.Close()
 
 	// --- Page sink ---
-	pagesDir := filepath.Join(cfg.Output.Directory, "pages")
-	sink := output.NewFilesystemPageSink(pagesDir, manifest)
+	// URLToRelativePath already prefixes paths with "pages/", so the sink base
+	// directory must be the output root to avoid output/pages/pages/... results.
+	sink := output.NewFilesystemPageSink(cfg.Output.Directory, manifest)
 
 	// --- Markdown converter ---
 	converter := markdown.NewConverter()
@@ -150,4 +151,26 @@ func run() error {
 	fmt.Printf("Manifest:         %s\n", manifestPath)
 
 	return nil
+}
+
+func newManifestWriter(cfg config.Config) (output.ManifestWriter, string, error) {
+	manifestType := strings.ToLower(strings.TrimSpace(cfg.Output.ManifestType))
+
+	switch manifestType {
+	case "csv":
+		manifestPath := filepath.Join(cfg.Output.Directory, "manifest.csv")
+		manifest, err := output.NewCSVManifestWriter(manifestPath)
+		if err != nil {
+			return nil, "", err
+		}
+		return manifest, manifestPath, nil
+	case "sqlite":
+		manifestPath := cfg.Output.SQLitePath
+		if strings.TrimSpace(manifestPath) == "" {
+			manifestPath = filepath.Join(cfg.Output.Directory, "manifest.sqlite")
+		}
+		return nil, "", fmt.Errorf("manifest type %q is not implemented yet (requested path: %s)", manifestType, manifestPath)
+	default:
+		return nil, "", fmt.Errorf("unsupported manifest type %q", cfg.Output.ManifestType)
+	}
 }

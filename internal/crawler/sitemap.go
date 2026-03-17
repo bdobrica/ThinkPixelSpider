@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -39,11 +40,12 @@ var sitemapPaths = []string{
 // a deduplicated list of page URLs found.
 func DiscoverSitemapURLs(domain string, userAgent string, timeout time.Duration) ([]string, error) {
 	client := &http.Client{Timeout: timeout}
+	allowedHosts := allowedSitemapHosts(domain)
 
 	var allURLs []string
 	for _, path := range sitemapPaths {
 		sitemapURL := "https://" + domain + path
-		urls, err := fetchSitemap(client, sitemapURL, userAgent)
+		urls, err := fetchSitemap(client, sitemapURL, userAgent, allowedHosts)
 		if err != nil {
 			continue
 		}
@@ -58,7 +60,7 @@ func DiscoverSitemapURLs(domain string, userAgent string, timeout time.Duration)
 
 // fetchSitemap retrieves a single sitemap URL and returns all page URLs found.
 // It handles both <sitemapindex> (recursive) and <urlset> formats.
-func fetchSitemap(client *http.Client, sitemapURL string, userAgent string) ([]string, error) {
+func fetchSitemap(client *http.Client, sitemapURL string, userAgent string, allowedHosts map[string]bool) ([]string, error) {
 	req, err := http.NewRequest(http.MethodGet, sitemapURL, nil)
 	if err != nil {
 		return nil, err
@@ -89,7 +91,12 @@ func fetchSitemap(client *http.Client, sitemapURL string, userAgent string) ([]s
 			if loc == "" {
 				continue
 			}
-			childURLs, err := fetchSitemap(client, loc, userAgent)
+			childSitemapURL, ok := resolveAndValidateSitemapURL(sitemapURL, loc, allowedHosts)
+			if !ok {
+				continue
+			}
+
+			childURLs, err := fetchSitemap(client, childSitemapURL, userAgent, allowedHosts)
 			if err != nil {
 				continue
 			}
@@ -125,4 +132,40 @@ func dedup(items []string) []string {
 		}
 	}
 	return result
+}
+
+func allowedSitemapHosts(domain string) map[string]bool {
+	d := strings.ToLower(strings.TrimSpace(domain))
+	d = strings.TrimPrefix(d, "www.")
+
+	return map[string]bool{
+		d:          true,
+		"www." + d: true,
+	}
+}
+
+func resolveAndValidateSitemapURL(parentSitemapURL string, childLoc string, allowedHosts map[string]bool) (string, bool) {
+	parent, err := url.Parse(parentSitemapURL)
+	if err != nil {
+		return "", false
+	}
+
+	child, err := url.Parse(strings.TrimSpace(childLoc))
+	if err != nil {
+		return "", false
+	}
+
+	resolved := parent.ResolveReference(child)
+	scheme := strings.ToLower(resolved.Scheme)
+	host := strings.ToLower(resolved.Hostname())
+
+	if scheme != "http" && scheme != "https" {
+		return "", false
+	}
+
+	if !allowedHosts[host] {
+		return "", false
+	}
+
+	return resolved.String(), true
 }

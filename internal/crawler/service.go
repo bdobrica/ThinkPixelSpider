@@ -89,11 +89,10 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 			return
 		}
 
-		if maxPages > 0 && atomic.LoadInt64(&discovered) >= maxPages {
+		if !reservePageSlot(&discovered, maxPages) {
 			return
 		}
 
-		atomic.AddInt64(&discovered, 1)
 		_ = e.Request.Visit(normalized)
 	})
 
@@ -115,13 +114,13 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
-		log.Printf("crawl error %s: %v", r.Request.URL, err)
+		log.Printf("crawl error %s: %v", safeResponseURL(r), err)
 		atomic.AddInt64(&errCount, 1)
 	})
 
 	// --- Discovery ---
 
-	discoveryMode := s.Config.Crawl.DiscoveryMode
+	discoveryMode := strings.ToLower(s.Config.Crawl.DiscoveryMode)
 
 	// Sitemap discovery.
 	if discoveryMode == "sitemap" || discoveryMode == "both" {
@@ -138,10 +137,9 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 			if !urlFilter.Allow(normalized) {
 				continue
 			}
-			if maxPages > 0 && atomic.LoadInt64(&discovered) >= maxPages {
+			if !reservePageSlot(&discovered, maxPages) {
 				break
 			}
-			atomic.AddInt64(&discovered, 1)
 			_ = c.Visit(normalized)
 		}
 	}
@@ -152,8 +150,9 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 		if homepage == "" {
 			homepage = fmt.Sprintf("https://%s/", domain)
 		}
-		atomic.AddInt64(&discovered, 1)
-		_ = c.Visit(homepage)
+		if reservePageSlot(&discovered, maxPages) {
+			_ = c.Visit(homepage)
+		}
 	}
 
 	c.Wait()
@@ -170,4 +169,29 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 func isHTML(ct string) bool {
 	return strings.Contains(strings.ToLower(ct), "text/html") ||
 		strings.Contains(strings.ToLower(ct), "application/xhtml+xml")
+}
+
+func safeResponseURL(r *colly.Response) string {
+	if r == nil || r.Request == nil || r.Request.URL == nil {
+		return "<unknown>"
+	}
+
+	return r.Request.URL.String()
+}
+
+func reservePageSlot(discovered *int64, maxPages int64) bool {
+	if maxPages <= 0 {
+		atomic.AddInt64(discovered, 1)
+		return true
+	}
+
+	for {
+		current := atomic.LoadInt64(discovered)
+		if current >= maxPages {
+			return false
+		}
+		if atomic.CompareAndSwapInt64(discovered, current, current+1) {
+			return true
+		}
+	}
 }

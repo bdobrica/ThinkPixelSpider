@@ -203,6 +203,30 @@ func TestValidateRejectsInvalidDiscoveryMode(t *testing.T) {
 	}
 }
 
+func TestLoadNormalizesDiscoveryModeFromEnv(t *testing.T) {
+	t.Setenv("CRAWLER_DISCOVERY_MODE", "BOTH")
+
+	cfg, err := Load([]string{})
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Crawl.DiscoveryMode != "both" {
+		t.Errorf("Crawl.DiscoveryMode = %q, want %q", cfg.Crawl.DiscoveryMode, "both")
+	}
+}
+
+func TestLoadNormalizesDiscoveryModeFromFlags(t *testing.T) {
+	cfg, err := Load([]string{"--discovery", "LiNkS"})
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Crawl.DiscoveryMode != "links" {
+		t.Errorf("Crawl.DiscoveryMode = %q, want %q", cfg.Crawl.DiscoveryMode, "links")
+	}
+}
+
 func TestValidateRejectsInvalidManifestType(t *testing.T) {
 	_, err := Load([]string{"--manifest", "json"})
 	if err == nil {

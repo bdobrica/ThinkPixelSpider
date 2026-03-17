@@ -3,6 +3,7 @@ package crawler
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ func TestDiscoverSitemapURLs_URLSet(t *testing.T) {
 
 	// We need to make DiscoverSitemapURLs work with our test server.
 	// Since it constructs URLs from domain, we'll test fetchSitemap directly.
-	urls, err := fetchSitemap(srv.Client(), srv.URL+"/sitemap.xml", "testbot")
+	urls, err := fetchSitemap(srv.Client(), srv.URL+"/sitemap.xml", "testbot", map[string]bool{"testserver": true})
 	if err != nil {
 		t.Fatalf("fetchSitemap error: %v", err)
 	}
@@ -84,7 +85,12 @@ func TestDiscoverSitemapURLs_SitemapIndex(t *testing.T) {
 	}))
 	defer srv2.Close()
 
-	urls, err := fetchSitemap(srv2.Client(), srv2.URL+"/sitemap_index.xml", "testbot")
+	u, err := url.Parse(srv2.URL)
+	if err != nil {
+		t.Fatalf("url.Parse: %v", err)
+	}
+
+	urls, err := fetchSitemap(srv2.Client(), srv2.URL+"/sitemap_index.xml", "testbot", map[string]bool{u.Hostname(): true})
 	if err != nil {
 		t.Fatalf("fetchSitemap error: %v", err)
 	}
@@ -102,7 +108,11 @@ func TestFetchSitemap_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	_, err := fetchSitemap(client, srv.URL+"/sitemap.xml", "testbot")
+	host, parseErr := url.Parse(srv.URL)
+	if parseErr != nil {
+		t.Fatalf("url.Parse: %v", parseErr)
+	}
+	_, err := fetchSitemap(client, srv.URL+"/sitemap.xml", "testbot", map[string]bool{host.Hostname(): true})
 	if err == nil {
 		t.Fatal("expected error for 404, got nil")
 	}
@@ -115,9 +125,61 @@ func TestFetchSitemap_InvalidXML(t *testing.T) {
 	defer srv.Close()
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	_, err := fetchSitemap(client, srv.URL+"/sitemap.xml", "testbot")
+	host, parseErr := url.Parse(srv.URL)
+	if parseErr != nil {
+		t.Fatalf("url.Parse: %v", parseErr)
+	}
+	_, err := fetchSitemap(client, srv.URL+"/sitemap.xml", "testbot", map[string]bool{host.Hostname(): true})
 	if err == nil {
 		t.Fatal("expected error for invalid XML, got nil")
+	}
+}
+
+func TestFetchSitemap_IgnoresExternalChildSitemaps(t *testing.T) {
+	var srvURL string
+	indexXMLTemplate := `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>EXTERNAL_CHILD</loc></sitemap>
+  <sitemap><loc>INTERNAL_CHILD</loc></sitemap>
+</sitemapindex>`
+
+	childXML := `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/from-internal-child</loc></url>
+</urlset>`
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sitemap_index.xml":
+			indexXML := strings.Replace(indexXMLTemplate, "EXTERNAL_CHILD", "https://external.example.com/child.xml", 1)
+			indexXML = strings.Replace(indexXML, "INTERNAL_CHILD", srvURL+"/child-sitemap.xml", 1)
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = w.Write([]byte(indexXML))
+		case "/child-sitemap.xml":
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = w.Write([]byte(childXML))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	srvURL = srv.URL
+
+	u, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatalf("url.Parse: %v", err)
+	}
+
+	urls, err := fetchSitemap(srv.Client(), srv.URL+"/sitemap_index.xml", "testbot", map[string]bool{u.Hostname(): true})
+	if err != nil {
+		t.Fatalf("fetchSitemap error: %v", err)
+	}
+
+	if len(urls) != 1 {
+		t.Fatalf("got %d URLs, want 1", len(urls))
+	}
+	if urls[0] != "https://example.com/from-internal-child" {
+		t.Errorf("URL = %q, want %q", urls[0], "https://example.com/from-internal-child")
 	}
 }
 
