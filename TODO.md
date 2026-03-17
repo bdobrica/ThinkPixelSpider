@@ -48,11 +48,11 @@
 
 ### Extraction
 
-- [ ] Integrate go-readability: extract title, byline, site name, HTML content, text, excerpt — [arch §11 Step 3](docs/architecture.md#step-3-go-readability-extraction)
-- [ ] Implement basic post-extraction validation (minimum word count threshold) — [arch §11 Step 4](docs/architecture.md#step-4-post-extraction-heuristics)
-- [ ] Implement HTML-to-Markdown conversion behind `MarkdownConverter` interface — [arch §11 Step 5](docs/architecture.md#step-5-html-to-markdown)
-- [ ] Implement Markdown normalization (trim whitespace, collapse blank lines) — [arch §11 Step 6](docs/architecture.md#step-6-normalize-markdown)
-- [ ] Add YAML front matter to Markdown output (url, title, byline, crawled_at, word_count, content_hash) — [arch §12](docs/architecture.md#12-markdown-output-format)
+- [x] Integrate go-readability: extract title, byline, site name, HTML content, text, excerpt — [arch §11 Step 3](docs/architecture.md#step-3-go-readability-extraction)
+- [x] Implement basic post-extraction validation (minimum word count threshold) — [arch §11 Step 4](docs/architecture.md#step-4-post-extraction-heuristics)
+- [x] Implement HTML-to-Markdown conversion behind `MarkdownConverter` interface — [arch §11 Step 5](docs/architecture.md#step-5-html-to-markdown)
+- [x] Implement Markdown normalization (trim whitespace, collapse blank lines) — [arch §11 Step 6](docs/architecture.md#step-6-normalize-markdown)
+- [x] Add YAML front matter to Markdown output (url, title, byline, crawled_at, word_count, content_hash) — [arch §12](docs/architecture.md#12-markdown-output-format)
 
 ### Output
 
