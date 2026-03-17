@@ -33,18 +33,18 @@
 
 ### Crawler core
 
-- [ ] Implement Colly collector factory with in-memory storage — [arch §7](docs/architecture.md#7-colly-storage-plan), [arch §20](docs/architecture.md#20-colly-factory-details)
-- [ ] Set up `AllowedDomains` (domain + www variant) — [arch §8](docs/architecture.md#8-domain-restrictions-and-duplicate-prevention)
-- [ ] Configure rate limiting, user agent, max depth, request timeout
-- [ ] Implement sitemap discovery (`/sitemap.xml`, `/sitemap_index.xml`) — [arch §9](docs/architecture.md#9-crawl-discovery-strategy)
-- [ ] Implement link discovery via `OnHTML("a[href]")` with normalization — [arch §21](docs/architecture.md#21-what-should-happen-on-onhtmlahref)
-- [ ] Implement `CrawlService` orchestrator — [arch §19](docs/architecture.md#19-crawl-service-design)
+- [x] Implement Colly collector factory with in-memory storage — [arch §7](docs/architecture.md#7-colly-storage-plan), [arch §20](docs/architecture.md#20-colly-factory-details)
+- [x] Set up `AllowedDomains` (domain + www variant) — [arch §8](docs/architecture.md#8-domain-restrictions-and-duplicate-prevention)
+- [x] Configure rate limiting, user agent, max depth, request timeout
+- [x] Implement sitemap discovery (`/sitemap.xml`, `/sitemap_index.xml`) — [arch §9](docs/architecture.md#9-crawl-discovery-strategy)
+- [x] Implement link discovery via `OnHTML("a[href]")` with normalization — [arch §21](docs/architecture.md#21-what-should-happen-on-onhtmlahref)
+- [x] Implement `CrawlService` orchestrator — [arch §19](docs/architecture.md#19-crawl-service-design)
 
 ### URL filtering
 
-- [ ] Implement URL normalization (lowercase, strip fragments, remove tracking params, sort query params) — [arch §8](docs/architecture.md#8-domain-restrictions-and-duplicate-prevention)
-- [ ] Implement URL blacklist rules (reject `/tag/`, `/category/`, `/wp-admin/`, etc.) — [arch §10 Tier 1](docs/architecture.md#10-article-candidate-filtering)
-- [ ] Implement article-likely URL boost heuristics (`/YYYY/MM/slug`, `/blog/`, etc.)
+- [x] Implement URL normalization (lowercase, strip fragments, remove tracking params, sort query params) — [arch §8](docs/architecture.md#8-domain-restrictions-and-duplicate-prevention)
+- [x] Implement URL blacklist rules (reject `/tag/`, `/category/`, `/wp-admin/`, etc.) — [arch §10 Tier 1](docs/architecture.md#10-article-candidate-filtering)
+- [x] Implement article-likely URL boost heuristics (`/YYYY/MM/slug`, `/blog/`, etc.)
 
 ### Extraction
 

@@ -1,5 +1,4 @@
 package config
-package config
 
 import (
 	"os"
@@ -40,25 +39,25 @@ func TestDefaults(t *testing.T) {
 
 func TestLoadEnvOverridesDefaults(t *testing.T) {
 	envVars := map[string]string{
-		"APP_MODE":                  "daemon",
-		"LOG_LEVEL":                 "debug",
-		"CRAWLER_MAX_PAGES":         "100",
-		"CRAWLER_MAX_DEPTH":         "2",
-		"CRAWLER_TIMEOUT_SECONDS":   "30",
-		"CRAWLER_USER_AGENT":        "testbot/2.0",
-		"CRAWLER_DELAY_MS":          "500",
-		"CRAWLER_RANDOM_DELAY_MS":   "100",
-		"CRAWLER_PARALLELISM":       "8",
+		"APP_MODE":                   "daemon",
+		"LOG_LEVEL":                  "debug",
+		"CRAWLER_MAX_PAGES":          "100",
+		"CRAWLER_MAX_DEPTH":          "2",
+		"CRAWLER_TIMEOUT_SECONDS":    "30",
+		"CRAWLER_USER_AGENT":         "testbot/2.0",
+		"CRAWLER_DELAY_MS":           "500",
+		"CRAWLER_RANDOM_DELAY_MS":    "100",
+		"CRAWLER_PARALLELISM":        "8",
 		"CRAWLER_INCLUDE_SUBDOMAINS": "true",
-		"CRAWLER_DISCOVERY_MODE":    "sitemap",
-		"CRAWLER_MIN_WORD_COUNT":    "50",
-		"COLLY_STORAGE":             "redis",
-		"COLLY_REDIS_ADDR":          "localhost:6380",
-		"COLLY_REDIS_DB":            "3",
-		"COLLY_REDIS_PREFIX":        "test",
-		"OUTPUT_DIR":                "/tmp/out",
-		"OUTPUT_MANIFEST_TYPE":      "sqlite",
-		"OUTPUT_SQLITE_PATH":        "/tmp/out/db.sqlite",
+		"CRAWLER_DISCOVERY_MODE":     "sitemap",
+		"CRAWLER_MIN_WORD_COUNT":     "50",
+		"COLLY_STORAGE":              "redis",
+		"COLLY_REDIS_ADDR":           "localhost:6380",
+		"COLLY_REDIS_DB":             "3",
+		"COLLY_REDIS_PREFIX":         "test",
+		"OUTPUT_DIR":                 "/tmp/out",
+		"OUTPUT_MANIFEST_TYPE":       "sqlite",
+		"OUTPUT_SQLITE_PATH":         "/tmp/out/db.sqlite",
 	}
 
 	for k, v := range envVars {
