@@ -56,10 +56,10 @@
 
 ### Output
 
-- [ ] Implement `PageSink` interface — [arch §19](docs/architecture.md#19-crawl-service-design)
-- [ ] Implement `FilesystemPageSink`: deterministic path from URL, hash fallback for collisions — [arch §5A](docs/architecture.md#file-naming-rule)
-- [ ] Implement `ManifestWriter` interface — [arch §13](docs/architecture.md#13-cli-output-persistence)
-- [ ] Implement CSV manifest writer
+- [x] Implement `PageSink` interface — [arch §19](docs/architecture.md#19-crawl-service-design)
+- [x] Implement `FilesystemPageSink`: deterministic path from URL, hash fallback for collisions — [arch §5A](docs/architecture.md#file-naming-rule)
+- [x] Implement `ManifestWriter` interface — [arch §13](docs/architecture.md#13-cli-output-persistence)
+- [x] Implement CSV manifest writer
 
 ### CLI entry point
 
