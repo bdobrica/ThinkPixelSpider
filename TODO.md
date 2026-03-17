@@ -207,7 +207,7 @@
 - [ ] DOM differencing extraction (compare multiple pages to isolate templates)
 - [ ] RSS/feed-based discovery mode
 - [ ] Resumable CLI crawls (persist crawl frontier to SQLite)
-- [ ] Subdomain crawling support (`CRAWLER_INCLUDE_SUBDOMAINS`) — deferred from CODE_REVIEW CR-007
+- [ ] Subdomain crawling support (`CRAWLER_INCLUDE_SUBDOMAINS`)
 - [ ] Distributed tracing (OpenTelemetry)
 - [ ] Content scoring / quality ranking
 - [ ] Multi-backend output sinks (S3, GCS, etc.)
