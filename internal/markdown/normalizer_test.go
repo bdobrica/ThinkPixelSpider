@@ -44,3 +44,27 @@ func TestNormalize_EmptyString(t *testing.T) {
 		t.Errorf("Normalize(\"\") = %q, want \"\"", got)
 	}
 }
+
+func TestNormalize_MixedLineEndingsInBlankLines(t *testing.T) {
+	input := "para one\r\n\r\n\r\npara two"
+	got := Normalize(input)
+	want := "para one\n\npara two"
+	if got != want {
+		t.Errorf("Normalize = %q, want %q", got, want)
+	}
+}
+
+func TestNormalize_OnlyWhitespace(t *testing.T) {
+	got := Normalize("   \n\n   \n  ")
+	if got != "" {
+		t.Errorf("Normalize(whitespace) = %q, want empty", got)
+	}
+}
+
+func TestNormalize_SingleLine(t *testing.T) {
+	got := Normalize("just one line")
+	want := "just one line"
+	if got != want {
+		t.Errorf("Normalize = %q, want %q", got, want)
+	}
+}

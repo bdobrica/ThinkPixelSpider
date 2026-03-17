@@ -68,12 +68,12 @@
 
 ### Tests (Phase 1)
 
-- [ ] Unit tests: URL normalization
-- [ ] Unit tests: URL filtering / blacklist rules
-- [ ] Unit tests: path generation from URL
-- [ ] Unit tests: Markdown normalization
-- [ ] Unit tests: config loading
-- [ ] Integration test: local HTTP test server with fake WP pages; validate output files — [arch §27](docs/architecture.md#27-testing-plan)
+- [x] Unit tests: URL normalization
+- [x] Unit tests: URL filtering / blacklist rules
+- [x] Unit tests: path generation from URL
+- [x] Unit tests: Markdown normalization
+- [x] Unit tests: config loading
+- [x] Integration test: local HTTP test server with fake WP pages; validate output files — [arch §27](docs/architecture.md#27-testing-plan)
 - [ ] Manual validation: run against 3–5 real WordPress sites
 
 ---

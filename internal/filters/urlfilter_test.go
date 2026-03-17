@@ -71,6 +71,33 @@ func TestNormalizeURL(t *testing.T) {
 	}
 }
 
+func TestNormalizeURL_NoQueryString(t *testing.T) {
+	got, err := NormalizeURL("https://example.com/simple")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "https://example.com/simple" {
+		t.Errorf("got %q, want unmodified URL", got)
+	}
+}
+
+func TestNormalizeURL_AllTrackingParamsRemoved(t *testing.T) {
+	got, err := NormalizeURL("https://example.com/page?utm_source=x&utm_medium=y&utm_campaign=z")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "https://example.com/page" {
+		t.Errorf("got %q, want URL with empty query", got)
+	}
+}
+
+func TestNormalizeURL_InvalidURL(t *testing.T) {
+	_, err := NormalizeURL("://")
+	if err == nil {
+		t.Error("expected error for invalid URL")
+	}
+}
+
 func TestURLFilterAllow(t *testing.T) {
 	f := NewURLFilter([]string{"example.com", "www.example.com"})
 
@@ -89,6 +116,13 @@ func TestURLFilterAllow(t *testing.T) {
 		{"blacklist feed", "https://example.com/feed", false},
 		{"blacklist wp-json", "https://example.com/wp-json/wp/v2/posts", false},
 		{"blacklist wp-content", "https://example.com/wp-content/uploads/image.jpg", false},
+		{"blacklist author", "https://example.com/author/john/", false},
+		{"blacklist search", "https://example.com/search?q=test", false},
+		{"blacklist comments", "https://example.com/page/comments/", false},
+		{"blacklist trackback", "https://example.com/page/trackback/", false},
+		{"blacklist xmlrpc", "https://example.com/xmlrpc.php", false},
+		{"blacklist wp-cron", "https://example.com/wp-cron.php", false},
+		{"blacklist wp-includes", "https://example.com/wp-includes/js/jquery.js", false},
 		{"allowed normal page", "https://example.com/about", true},
 		{"allowed article path", "https://example.com/2026/03/hello-world", true},
 	}
