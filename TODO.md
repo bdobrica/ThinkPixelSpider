@@ -26,10 +26,10 @@
 
 ### Config
 
-- [ ] Implement `Config` struct — [arch §16](docs/architecture.md#16-configuration-model)
-- [ ] Load config from env vars — [arch §17](docs/architecture.md#17-suggested-env-vars)
-- [ ] Load config from CLI flags (`--domain`, `--output`, `--manifest`)
-- [ ] Apply precedence: flags → env → defaults
+- [x] Implement `Config` struct — [arch §16](docs/architecture.md#16-configuration-model)
+- [x] Load config from env vars — [arch §17](docs/architecture.md#17-suggested-env-vars)
+- [x] Load config from CLI flags (`--domain`, `--output`, `--manifest`)
+- [x] Apply precedence: flags → env → defaults
 
 ### Crawler core
 
