@@ -51,7 +51,7 @@ type CollyConfig struct {
 // OutputConfig controls CLI-mode output paths and manifest format.
 type OutputConfig struct {
 	Directory    string
-	ManifestType string // "csv" or "sqlite"
+	ManifestType string // "csv" for now; SQLite support is planned.
 	SQLitePath   string
 }
 
@@ -209,7 +209,7 @@ func loadEnv(cfg *Config) {
 func loadFlags(cfg *Config, fs *flag.FlagSet, args []string) error {
 	domain := fs.String("domain", "", "target domain to crawl")
 	output := fs.String("output", "", "output directory for crawled content")
-	manifest := fs.String("manifest", "", "manifest format: csv or sqlite")
+	manifest := fs.String("manifest", "", "manifest format: csv")
 	maxPages := fs.Int("max-pages", 0, "maximum number of pages to crawl")
 	maxDepth := fs.Int("max-depth", 0, "maximum crawl depth")
 	discovery := fs.String("discovery", "", "discovery mode: sitemap, links, or both")
@@ -279,9 +279,13 @@ func validate(cfg *Config) error {
 	cfg.Crawl.DiscoveryMode = dm
 
 	mt := strings.ToLower(cfg.Output.ManifestType)
-	if mt != "csv" && mt != "sqlite" {
-		return fmt.Errorf("invalid manifest type %q: must be csv or sqlite", cfg.Output.ManifestType)
+	if mt == "sqlite" {
+		return fmt.Errorf("manifest type %q is not implemented yet: use csv", cfg.Output.ManifestType)
 	}
+	if mt != "csv" {
+		return fmt.Errorf("invalid manifest type %q: must be csv", cfg.Output.ManifestType)
+	}
+	cfg.Output.ManifestType = mt
 
 	return nil
 }

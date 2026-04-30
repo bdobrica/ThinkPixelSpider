@@ -55,7 +55,7 @@ This makes ThinkPixelSpider practical for a strong first version while leaving r
   - Redis
 - environment-variable-based configuration
 - Kubernetes-friendly worker model
-- output manifest in CSV or SQLite
+- output manifest in CSV
 - deterministic URL-to-file mapping
 - deduplication and domain restriction support
 
@@ -76,7 +76,7 @@ flowchart TD
     extraction --> cli_out
     extraction --> queue_out
 
-    cli_out["CLI Output\n— markdown files\n— CSV manifest\n— SQLite manifest"]
+    cli_out["CLI Output\n— markdown files\n— CSV manifest"]
 
     queue_out["Queue Output\n— crawled page events\n— crawl summaries\n— error events"]
 ```
@@ -90,7 +90,7 @@ In CLI mode, ThinkPixelSpider accepts a domain as input and an output folder as 
 It crawls the target site, extracts readable content from relevant pages, converts it to Markdown, and writes:
 
 * Markdown files containing extracted page content
-* a manifest file in either CSV or SQLite format mapping:
+* a CSV manifest file mapping:
 
   * crawled URL
   * canonical URL
@@ -103,7 +103,7 @@ Example output structure:
 
 ```text
 output/
-  manifest.sqlite
+  manifest.csv
   pages/
     example.com/
       blog/
@@ -178,8 +178,7 @@ COLLY_REDIS_DB=0
 COLLY_REDIS_PREFIX=thinkpixelspider
 
 OUTPUT_DIR=./output
-OUTPUT_MANIFEST_TYPE=sqlite
-OUTPUT_SQLITE_PATH=./output/manifest.sqlite
+OUTPUT_MANIFEST_TYPE=csv
 
 QUEUE_BACKEND=redis
 QUEUE_REDIS_ADDR=redis:6379
@@ -199,7 +198,7 @@ QUEUE_NATS_DURABLE_NAME=thinkpixelspider
 thinkpixelspider crawl \
   --domain example.com \
   --output ./output \
-  --manifest sqlite
+  --manifest csv
 ```
 
 Possible future variants:
@@ -304,7 +303,7 @@ The initial focus is:
 
 * CLI-based crawling
 * Markdown output
-* CSV / SQLite manifests
+* CSV manifests
 * Colly integration
 * go-readability integration
 * Redis-backed queue support

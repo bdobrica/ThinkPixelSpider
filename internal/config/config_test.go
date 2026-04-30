@@ -56,7 +56,7 @@ func TestLoadEnvOverridesDefaults(t *testing.T) {
 		"COLLY_REDIS_DB":             "3",
 		"COLLY_REDIS_PREFIX":         "test",
 		"OUTPUT_DIR":                 "/tmp/out",
-		"OUTPUT_MANIFEST_TYPE":       "sqlite",
+		"OUTPUT_MANIFEST_TYPE":       "csv",
 		"OUTPUT_SQLITE_PATH":         "/tmp/out/db.sqlite",
 	}
 
@@ -118,8 +118,8 @@ func TestLoadEnvOverridesDefaults(t *testing.T) {
 	if cfg.Output.Directory != "/tmp/out" {
 		t.Errorf("Output.Directory = %q, want %q", cfg.Output.Directory, "/tmp/out")
 	}
-	if cfg.Output.ManifestType != "sqlite" {
-		t.Errorf("Output.ManifestType = %q, want %q", cfg.Output.ManifestType, "sqlite")
+	if cfg.Output.ManifestType != "csv" {
+		t.Errorf("Output.ManifestType = %q, want %q", cfg.Output.ManifestType, "csv")
 	}
 	if cfg.Output.SQLitePath != "/tmp/out/db.sqlite" {
 		t.Errorf("Output.SQLitePath = %q, want %q", cfg.Output.SQLitePath, "/tmp/out/db.sqlite")
@@ -231,6 +231,28 @@ func TestValidateRejectsInvalidManifestType(t *testing.T) {
 	_, err := Load([]string{"--manifest", "json"})
 	if err == nil {
 		t.Fatal("expected error for invalid manifest type, got nil")
+	}
+}
+
+func TestValidateRejectsSQLiteManifestTypeFromFlags(t *testing.T) {
+	_, err := Load([]string{"--manifest", "sqlite"})
+	if err == nil {
+		t.Fatal("expected error for sqlite manifest type, got nil")
+	}
+	if got := err.Error(); got != "manifest type \"sqlite\" is not implemented yet: use csv" {
+		t.Fatalf("Load() error = %q, want %q", got, "manifest type \"sqlite\" is not implemented yet: use csv")
+	}
+}
+
+func TestValidateRejectsSQLiteManifestTypeFromEnv(t *testing.T) {
+	t.Setenv("OUTPUT_MANIFEST_TYPE", "sqlite")
+
+	_, err := Load([]string{})
+	if err == nil {
+		t.Fatal("expected error for sqlite manifest type from env, got nil")
+	}
+	if got := err.Error(); got != "manifest type \"sqlite\" is not implemented yet: use csv" {
+		t.Fatalf("Load() error = %q, want %q", got, "manifest type \"sqlite\" is not implemented yet: use csv")
 	}
 }
 
