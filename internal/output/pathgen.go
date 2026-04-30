@@ -4,47 +4,58 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/bdobrica/ThinkPixelSpider/internal/filters"
 )
 
 // URLToRelativePath derives a deterministic file path from a page URL.
 //
 // Strategy (per arch §5A):
+//   - Normalize the URL first so equivalent URLs share the same mapping.
 //   - Use the URL host + path to build a directory/file structure.
 //   - Strip leading/trailing slashes, replace remaining slashes with os separators.
 //   - Append ".md" extension.
-//   - If the resulting path collides with an existing file in baseDir, append
-//     a short hash suffix: "slug--<hash>.md".
+//   - If the mapping would otherwise be lossy (for example due to query
+//     parameters or stripping .html/.htm), append a short hash suffix:
+//     "slug--<hash>.md".
 func URLToRelativePath(rawURL string, baseDir string) (string, error) {
-	u, err := url.Parse(rawURL)
+	_ = baseDir
+
+	normalizedURL, err := filters.NormalizeURL(rawURL)
 	if err != nil {
-		return "", fmt.Errorf("invalid URL %q: %w", rawURL, err)
+		return "", fmt.Errorf("normalize URL %q: %w", rawURL, err)
+	}
+
+	u, err := url.Parse(normalizedURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL %q: %w", normalizedURL, err)
 	}
 
 	host := strings.ToLower(u.Hostname())
 	if host == "" {
-		return "", fmt.Errorf("URL %q has no host", rawURL)
+		return "", fmt.Errorf("URL %q has no host", normalizedURL)
 	}
 
 	// Clean the path: trim slashes, default to "index" for root.
-	p := strings.Trim(u.Path, "/")
+	originalPath := strings.Trim(u.Path, "/")
+	p := originalPath
 	if p == "" {
 		p = "index"
 	}
 	// Remove .html / .htm extensions so we get clean .md names.
-	p = strings.TrimSuffix(p, ".html")
-	p = strings.TrimSuffix(p, ".htm")
+	cleanPath := strings.TrimSuffix(strings.TrimSuffix(p, ".html"), ".htm")
+	if cleanPath == "" {
+		cleanPath = "index"
+	}
 
-	rel := filepath.Join("pages", host, filepath.FromSlash(p)) + ".md"
+	base := filepath.Join("pages", host, filepath.FromSlash(cleanPath))
+	rel := base + ".md"
 
-	// If the path already exists, append a hash suffix to avoid collisions.
-	candidate := filepath.Join(baseDir, rel)
-	if _, err := os.Stat(candidate); err == nil {
-		hash := shortHash(rawURL)
-		ext := filepath.Ext(rel)
-		rel = strings.TrimSuffix(rel, ext) + "--" + hash + ext
+	pathWasStripped := originalPath != "" && cleanPath != originalPath
+	if u.RawQuery != "" || pathWasStripped {
+		rel = base + "--" + shortHash(normalizedURL) + ".md"
 	}
 
 	return rel, nil

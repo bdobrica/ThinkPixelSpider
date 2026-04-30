@@ -83,6 +83,51 @@ func TestFilesystemPageSink_WithManifest(t *testing.T) {
 	}
 }
 
+func TestFilesystemPageSink_SavePage_QueryDistinctURLsDoNotOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	sink := NewFilesystemPageSink(dir, nil)
+
+	first := &jobs.CrawledPage{
+		URL:             "https://example.com/post?a=1",
+		Title:           "First",
+		MarkdownContent: "# First\n",
+		CrawledAt:       time.Now(),
+	}
+	second := &jobs.CrawledPage{
+		URL:             "https://example.com/post?a=2",
+		Title:           "Second",
+		MarkdownContent: "# Second\n",
+		CrawledAt:       time.Now(),
+	}
+
+	if err := sink.SavePage(context.Background(), first); err != nil {
+		t.Fatalf("SavePage(first): %v", err)
+	}
+	if err := sink.SavePage(context.Background(), second); err != nil {
+		t.Fatalf("SavePage(second): %v", err)
+	}
+
+	if first.RelativePath == second.RelativePath {
+		t.Fatalf("query-distinct URLs mapped to same relative path %q", first.RelativePath)
+	}
+
+	firstContent, err := os.ReadFile(filepath.Join(dir, first.RelativePath))
+	if err != nil {
+		t.Fatalf("read first output: %v", err)
+	}
+	if string(firstContent) != first.MarkdownContent {
+		t.Errorf("first file content = %q, want %q", string(firstContent), first.MarkdownContent)
+	}
+
+	secondContent, err := os.ReadFile(filepath.Join(dir, second.RelativePath))
+	if err != nil {
+		t.Fatalf("read second output: %v", err)
+	}
+	if string(secondContent) != second.MarkdownContent {
+		t.Errorf("second file content = %q, want %q", string(secondContent), second.MarkdownContent)
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && containsString(s, substr)
 }
