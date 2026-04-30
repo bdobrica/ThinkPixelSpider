@@ -256,7 +256,7 @@ func TestCrawlServiceRun_DuplicateSitemapURLsDoNotConsumeMaxPages(t *testing.T) 
 	hostname := mustHostname(t, srvURL)
 
 	originalDiscover := discoverSitemapURLs
-	discoverSitemapURLs = func(domain string, userAgent string, timeout time.Duration) ([]string, error) {
+	discoverSitemapURLs = func(baseURL string, userAgent string, timeout time.Duration) ([]string, error) {
 		return []string{
 			srvURL + "/duplicate",
 			srvURL + "/duplicate",
@@ -307,6 +307,79 @@ func TestCrawlServiceRun_DuplicateSitemapURLsDoNotConsumeMaxPages(t *testing.T) 
 	}
 	if !visited[srvURL+"/unique"] {
 		t.Fatal("expected unique sitemap URL to be visited despite duplicate entries")
+	}
+	if len(visited) != 2 {
+		t.Fatalf("visited unique URLs = %d, want 2", len(visited))
+	}
+}
+
+func TestCrawlServiceRun_SitemapDiscoveryUsesSeedURLForLocalHTTP(t *testing.T) {
+	mux := http.NewServeMux()
+	var srvURL string
+
+	mux.HandleFunc("/sitemap.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>%[1]s/article-1</loc></url>
+  <url><loc>%[1]s/article-2</loc></url>
+</urlset>`, srvURL)
+	})
+	mux.HandleFunc("/article-1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><body><h1>Article 1</h1></body></html>`)
+	})
+	mux.HandleFunc("/article-2", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><body><h1>Article 2</h1></body></html>`)
+	})
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	srvURL = srv.URL
+	hostname := mustHostname(t, srvURL)
+
+	var mu sync.Mutex
+	visited := make(map[string]bool)
+
+	svc := &CrawlService{
+		Config: config.Config{
+			Crawl: config.CrawlConfig{
+				MaxPages:              10,
+				MaxDepth:              1,
+				RequestTimeoutSeconds: 5,
+				UserAgent:             "testbot/1.0",
+				Parallelism:           1,
+				DiscoveryMode:         "sitemap",
+			},
+		},
+		Collector: testCollector(1),
+		SeedURL:   srvURL + "/",
+		URLFilter: filters.NewURLFilter([]string{hostname}),
+		PageHandler: func(_ context.Context, pageURL string, _ int, _ []byte) error {
+			mu.Lock()
+			visited[pageURL] = true
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	result, err := svc.Run(context.Background(), hostname)
+	if err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	if result.PagesDiscovered != 2 {
+		t.Fatalf("PagesDiscovered = %d, want 2", result.PagesDiscovered)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !visited[srvURL+"/article-1"] {
+		t.Fatal("expected article-1 to be visited via local HTTP sitemap discovery")
+	}
+	if !visited[srvURL+"/article-2"] {
+		t.Fatal("expected article-2 to be visited via local HTTP sitemap discovery")
 	}
 	if len(visited) != 2 {
 		t.Fatalf("visited unique URLs = %d, want 2", len(visited))

@@ -1127,6 +1127,11 @@ type CrawlService struct {
 }
 ```
 
+Implementation note:
+
+* Production discovery should derive its base from `https://<domain>`.
+* A `SeedURL`-style override is useful for local development and `httptest` servers, but should remain an internal testing/local escape hatch rather than a user-facing production setting.
+
 ## Page sink interface
 
 ```go

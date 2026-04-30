@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,8 +31,10 @@ type CrawlService struct {
 	// This is useful for testing with custom transport/settings.
 	Collector *colly.Collector
 
-	// SeedURL, if set, overrides the default https://<domain>/ seed for link
-	// discovery. Useful for testing against httptest servers.
+	// SeedURL, if set, overrides the default HTTPS discovery base for link and
+	// sitemap discovery. This is intended for local development and httptest
+	// servers; production crawls should rely on the derived https://<domain>
+	// base instead of using SeedURL as a general-purpose configuration knob.
 	SeedURL string
 }
 
@@ -44,7 +47,7 @@ type CrawlResult struct {
 	FinishedAt      time.Time
 }
 
-var discoverSitemapURLs = DiscoverSitemapURLs
+var discoverSitemapURLs = DiscoverSitemapURLsFromBaseURL
 
 // Run executes a full crawl for the given domain.
 func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, error) {
@@ -121,11 +124,12 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 	// --- Discovery ---
 
 	discoveryMode := strings.ToLower(s.Config.Crawl.DiscoveryMode)
+	discoveryBaseURL := s.discoveryBaseURL(domain)
 
 	// Sitemap discovery.
 	if discoveryMode == "sitemap" || discoveryMode == "both" {
 		timeout := time.Duration(s.Config.Crawl.RequestTimeoutSeconds) * time.Second
-		sitemapURLs, err := discoverSitemapURLs(domain, s.Config.Crawl.UserAgent, timeout)
+		sitemapURLs, err := discoverSitemapURLs(discoveryBaseURL, s.Config.Crawl.UserAgent, timeout)
 		if err != nil {
 			log.Printf("sitemap discovery error: %v", err)
 		}
@@ -150,7 +154,7 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 	if discoveryMode == "links" || discoveryMode == "both" {
 		homepage := s.SeedURL
 		if homepage == "" {
-			homepage = fmt.Sprintf("https://%s/", domain)
+			homepage = discoveryBaseURL + "/"
 		}
 		if normalized, err := filters.NormalizeURL(homepage); err == nil {
 			homepage = normalized
@@ -166,6 +170,16 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 	result.FinishedAt = time.Now()
 
 	return result, nil
+}
+
+func (s *CrawlService) discoveryBaseURL(domain string) string {
+	if s.SeedURL != "" {
+		if parsed, err := url.Parse(s.SeedURL); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+			return fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
+		}
+	}
+
+	return fmt.Sprintf("https://%s", domain)
 }
 
 // isHTML checks if the Content-Type header indicates an HTML response.

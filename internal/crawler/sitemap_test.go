@@ -103,6 +103,42 @@ func TestDiscoverSitemapURLs_SitemapIndex(t *testing.T) {
 	}
 }
 
+func TestDiscoverSitemapURLsFromBaseURL_HTTPServer(t *testing.T) {
+	var srvURL string
+	sitemapXMLTemplate := `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>SERVER_URL/blog/post-1</loc></url>
+  <url><loc>SERVER_URL/blog/post-2</loc></url>
+</urlset>`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/sitemap.xml" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/xml")
+		_, _ = w.Write([]byte(strings.ReplaceAll(sitemapXMLTemplate, "SERVER_URL", srvURL)))
+	}))
+	defer srv.Close()
+	srvURL = srv.URL
+
+	urls, err := DiscoverSitemapURLsFromBaseURL(srvURL, "testbot", 5*time.Second)
+	if err != nil {
+		t.Fatalf("DiscoverSitemapURLsFromBaseURL() error: %v", err)
+	}
+
+	if len(urls) != 2 {
+		t.Fatalf("got %d URLs, want 2", len(urls))
+	}
+	if urls[0] != srvURL+"/blog/post-1" {
+		t.Errorf("urls[0] = %q, want %q", urls[0], srvURL+"/blog/post-1")
+	}
+	if urls[1] != srvURL+"/blog/post-2" {
+		t.Errorf("urls[1] = %q, want %q", urls[1], srvURL+"/blog/post-2")
+	}
+}
+
 func TestFetchSitemap_NotFound(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	defer srv.Close()

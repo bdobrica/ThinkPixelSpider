@@ -39,12 +39,27 @@ var sitemapPaths = []string{
 // DiscoverSitemapURLs fetches sitemap(s) for the given domain and returns
 // a deduplicated list of page URLs found.
 func DiscoverSitemapURLs(domain string, userAgent string, timeout time.Duration) ([]string, error) {
+	return DiscoverSitemapURLsFromBaseURL("https://"+domain, userAgent, timeout)
+}
+
+// DiscoverSitemapURLsFromBaseURL fetches sitemap(s) from a fully qualified
+// base URL and returns a deduplicated list of page URLs found.
+func DiscoverSitemapURLsFromBaseURL(baseURL string, userAgent string, timeout time.Duration) ([]string, error) {
 	client := &http.Client{Timeout: timeout}
-	allowedHosts := allowedSitemapHosts(domain)
+	parsedBase, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return nil, fmt.Errorf("invalid sitemap base URL %q: %w", baseURL, err)
+	}
+	if parsedBase.Scheme == "" || parsedBase.Host == "" {
+		return nil, fmt.Errorf("invalid sitemap base URL %q: missing scheme or host", baseURL)
+	}
+
+	root := &url.URL{Scheme: strings.ToLower(parsedBase.Scheme), Host: parsedBase.Host}
+	allowedHosts := allowedSitemapHosts(parsedBase.Hostname())
 
 	var allURLs []string
 	for _, path := range sitemapPaths {
-		sitemapURL := "https://" + domain + path
+		sitemapURL := root.String() + path
 		urls, err := fetchSitemap(client, sitemapURL, userAgent, allowedHosts)
 		if err != nil {
 			continue
