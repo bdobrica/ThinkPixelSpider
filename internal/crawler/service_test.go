@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gocolly/colly/v2"
 
@@ -162,6 +163,156 @@ func TestCrawlServiceRun_MaxPagesLimit(t *testing.T) {
 	}
 }
 
+func TestCrawlServiceRun_DuplicateLinksDoNotConsumeMaxPages(t *testing.T) {
+	mux := http.NewServeMux()
+	var srvURL string
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, `<html><body>
+			<a href="%s/duplicate">Duplicate 1</a>
+			<a href="%s/duplicate">Duplicate 2</a>
+			<a href="%s/duplicate">Duplicate 3</a>
+			<a href="%s/unique">Unique</a>
+		</body></html>`, srvURL, srvURL, srvURL, srvURL)
+	})
+	mux.HandleFunc("/duplicate", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><body><h1>Duplicate</h1></body></html>`)
+	})
+	mux.HandleFunc("/unique", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><body><h1>Unique</h1></body></html>`)
+	})
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	srvURL = srv.URL
+	hostname := mustHostname(t, srvURL)
+
+	var mu sync.Mutex
+	visited := make(map[string]bool)
+
+	svc := &CrawlService{
+		Config: config.Config{
+			Crawl: config.CrawlConfig{
+				MaxPages:              3,
+				MaxDepth:              2,
+				RequestTimeoutSeconds: 5,
+				UserAgent:             "testbot/1.0",
+				Parallelism:           1,
+				DiscoveryMode:         "links",
+			},
+		},
+		Collector: testCollector(2),
+		SeedURL:   srvURL + "/",
+		URLFilter: filters.NewURLFilter([]string{hostname}),
+		PageHandler: func(_ context.Context, pageURL string, _ int, _ []byte) error {
+			mu.Lock()
+			visited[pageURL] = true
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	result, err := svc.Run(context.Background(), hostname)
+	if err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	if result.PagesDiscovered != 3 {
+		t.Fatalf("PagesDiscovered = %d, want 3 (homepage + duplicate + unique)", result.PagesDiscovered)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !visited[srvURL+"/duplicate"] {
+		t.Fatal("expected duplicate page to be visited once")
+	}
+	if !visited[srvURL+"/unique"] {
+		t.Fatal("expected unique page to be visited despite duplicate links")
+	}
+	if len(visited) != 3 {
+		t.Fatalf("visited unique URLs = %d, want 3", len(visited))
+	}
+}
+
+func TestCrawlServiceRun_DuplicateSitemapURLsDoNotConsumeMaxPages(t *testing.T) {
+	mux := http.NewServeMux()
+	var srvURL string
+
+	mux.HandleFunc("/duplicate", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><body><h1>Duplicate</h1></body></html>`)
+	})
+	mux.HandleFunc("/unique", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><body><h1>Unique</h1></body></html>`)
+	})
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	srvURL = srv.URL
+	hostname := mustHostname(t, srvURL)
+
+	originalDiscover := discoverSitemapURLs
+	discoverSitemapURLs = func(domain string, userAgent string, timeout time.Duration) ([]string, error) {
+		return []string{
+			srvURL + "/duplicate",
+			srvURL + "/duplicate",
+			srvURL + "/unique",
+		}, nil
+	}
+	defer func() {
+		discoverSitemapURLs = originalDiscover
+	}()
+
+	var mu sync.Mutex
+	visited := make(map[string]bool)
+
+	svc := &CrawlService{
+		Config: config.Config{
+			Crawl: config.CrawlConfig{
+				MaxPages:              2,
+				MaxDepth:              1,
+				RequestTimeoutSeconds: 5,
+				UserAgent:             "testbot/1.0",
+				Parallelism:           1,
+				DiscoveryMode:         "sitemap",
+			},
+		},
+		Collector: testCollector(1),
+		URLFilter: filters.NewURLFilter([]string{hostname}),
+		PageHandler: func(_ context.Context, pageURL string, _ int, _ []byte) error {
+			mu.Lock()
+			visited[pageURL] = true
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	result, err := svc.Run(context.Background(), hostname)
+	if err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	if result.PagesDiscovered != 2 {
+		t.Fatalf("PagesDiscovered = %d, want 2 (duplicate + unique)", result.PagesDiscovered)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !visited[srvURL+"/duplicate"] {
+		t.Fatal("expected duplicate sitemap URL to be visited once")
+	}
+	if !visited[srvURL+"/unique"] {
+		t.Fatal("expected unique sitemap URL to be visited despite duplicate entries")
+	}
+	if len(visited) != 2 {
+		t.Fatalf("visited unique URLs = %d, want 2", len(visited))
+	}
+}
+
 func TestCrawlServiceRun_SkipsNonHTML(t *testing.T) {
 	mux := http.NewServeMux()
 
@@ -230,6 +381,69 @@ func TestSafeResponseURL_WithURL(t *testing.T) {
 	}
 }
 
+func TestVisitScheduler_DuplicateURLDoesNotConsumeBudgetTwice(t *testing.T) {
+	var discovered int64
+	scheduler := newVisitScheduler(&discovered, 2)
+
+	var visitCalls int64
+	visit := func(string) error {
+		atomic.AddInt64(&visitCalls, 1)
+		return nil
+	}
+
+	if ok := scheduler.Schedule("https://example.com/duplicate", visit); !ok {
+		t.Fatal("first Schedule() = false, want true")
+	}
+	if ok := scheduler.Schedule("https://example.com/duplicate", visit); ok {
+		t.Fatal("second Schedule() on duplicate URL = true, want false")
+	}
+	if ok := scheduler.Schedule("https://example.com/unique", visit); !ok {
+		t.Fatal("Schedule() for unique URL after duplicate = false, want true")
+	}
+
+	if got := atomic.LoadInt64(&visitCalls); got != 2 {
+		t.Fatalf("visit calls = %d, want 2", got)
+	}
+	if got := atomic.LoadInt64(&discovered); got != 2 {
+		t.Fatalf("discovered = %d, want 2", got)
+	}
+	if ok := scheduler.Schedule("https://example.com/overflow", visit); ok {
+		t.Fatal("Schedule() beyond maxPages = true, want false")
+	}
+}
+
+func TestVisitScheduler_FailedVisitRefundsBudget(t *testing.T) {
+	var discovered int64
+	scheduler := newVisitScheduler(&discovered, 1)
+
+	failingVisit := func(string) error {
+		return fmt.Errorf("visit failed")
+	}
+
+	if ok := scheduler.Schedule("https://example.com/fail", failingVisit); ok {
+		t.Fatal("Schedule() with failing visit = true, want false")
+	}
+	if got := atomic.LoadInt64(&discovered); got != 0 {
+		t.Fatalf("discovered after failed visit = %d, want 0", got)
+	}
+
+	var accepted string
+	workingVisit := func(url string) error {
+		accepted = url
+		return nil
+	}
+
+	if ok := scheduler.Schedule("https://example.com/success", workingVisit); !ok {
+		t.Fatal("Schedule() after refund = false, want true")
+	}
+	if accepted != "https://example.com/success" {
+		t.Fatalf("accepted URL = %q, want %q", accepted, "https://example.com/success")
+	}
+	if got := atomic.LoadInt64(&discovered); got != 1 {
+		t.Fatalf("discovered after successful retry = %d, want 1", got)
+	}
+}
+
 func TestReservePageSlot_StrictUnderConcurrency(t *testing.T) {
 	const maxPages int64 = 5
 	const workers = 100
@@ -255,4 +469,15 @@ func TestReservePageSlot_StrictUnderConcurrency(t *testing.T) {
 	if got := atomic.LoadInt64(&discovered); got != maxPages {
 		t.Errorf("discovered = %d, want %d", got, maxPages)
 	}
+}
+
+func mustHostname(t *testing.T, raw string) string {
+	t.Helper()
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatalf("url.Parse(%q): %v", raw, err)
+	}
+
+	return u.Hostname()
 }

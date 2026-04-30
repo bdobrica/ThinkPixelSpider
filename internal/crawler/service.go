@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -43,6 +44,8 @@ type CrawlResult struct {
 	FinishedAt      time.Time
 }
 
+var discoverSitemapURLs = DiscoverSitemapURLs
+
 // Run executes a full crawl for the given domain.
 func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, error) {
 	allowedDomains := filters.AllowedDomainsForDomain(domain)
@@ -61,6 +64,7 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 	var visited int64
 	var errCount int64
 	maxPages := int64(s.Config.Crawl.MaxPages)
+	scheduler := newVisitScheduler(&discovered, maxPages)
 
 	// --- Callbacks ---
 
@@ -89,11 +93,7 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 			return
 		}
 
-		if !reservePageSlot(&discovered, maxPages) {
-			return
-		}
-
-		_ = e.Request.Visit(normalized)
+		scheduler.Schedule(normalized, e.Request.Visit)
 	})
 
 	// Page handler callback.
@@ -125,7 +125,7 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 	// Sitemap discovery.
 	if discoveryMode == "sitemap" || discoveryMode == "both" {
 		timeout := time.Duration(s.Config.Crawl.RequestTimeoutSeconds) * time.Second
-		sitemapURLs, err := DiscoverSitemapURLs(domain, s.Config.Crawl.UserAgent, timeout)
+		sitemapURLs, err := discoverSitemapURLs(domain, s.Config.Crawl.UserAgent, timeout)
 		if err != nil {
 			log.Printf("sitemap discovery error: %v", err)
 		}
@@ -137,10 +137,12 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 			if !urlFilter.Allow(normalized) {
 				continue
 			}
-			if !reservePageSlot(&discovered, maxPages) {
-				break
+			if !scheduler.Schedule(normalized, c.Visit) {
+				if atomic.LoadInt64(&discovered) >= maxPages && maxPages > 0 {
+					break
+				}
+				continue
 			}
-			_ = c.Visit(normalized)
 		}
 	}
 
@@ -150,9 +152,10 @@ func (s *CrawlService) Run(ctx context.Context, domain string) (*CrawlResult, er
 		if homepage == "" {
 			homepage = fmt.Sprintf("https://%s/", domain)
 		}
-		if reservePageSlot(&discovered, maxPages) {
-			_ = c.Visit(homepage)
+		if normalized, err := filters.NormalizeURL(homepage); err == nil {
+			homepage = normalized
 		}
+		scheduler.Schedule(homepage, c.Visit)
 	}
 
 	c.Wait()
@@ -194,4 +197,53 @@ func reservePageSlot(discovered *int64, maxPages int64) bool {
 			return true
 		}
 	}
+}
+
+func releasePageSlot(discovered *int64, maxPages int64) {
+	if maxPages <= 0 {
+		atomic.AddInt64(discovered, -1)
+		return
+	}
+
+	atomic.AddInt64(discovered, -1)
+}
+
+type visitScheduler struct {
+	discovered *int64
+	maxPages   int64
+
+	mu        sync.Mutex
+	scheduled map[string]struct{}
+}
+
+func newVisitScheduler(discovered *int64, maxPages int64) *visitScheduler {
+	return &visitScheduler{
+		discovered: discovered,
+		maxPages:   maxPages,
+		scheduled:  make(map[string]struct{}),
+	}
+}
+
+func (s *visitScheduler) Schedule(url string, visit func(string) error) bool {
+	s.mu.Lock()
+	if _, exists := s.scheduled[url]; exists {
+		s.mu.Unlock()
+		return false
+	}
+	if !reservePageSlot(s.discovered, s.maxPages) {
+		s.mu.Unlock()
+		return false
+	}
+	s.scheduled[url] = struct{}{}
+	s.mu.Unlock()
+
+	if err := visit(url); err != nil {
+		s.mu.Lock()
+		delete(s.scheduled, url)
+		s.mu.Unlock()
+		releasePageSlot(s.discovered, s.maxPages)
+		return false
+	}
+
+	return true
 }
